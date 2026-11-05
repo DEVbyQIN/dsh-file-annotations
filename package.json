@@ -1,0 +1,60 @@
+{
+  "name": "dsh-file-annotations",
+  "version": "0.6.0",
+  "description": "Review file notes above the composer and send them with your message",
+  "icon": "./icon.svg",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.mjs",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "README.md",
+    "README_EN.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/composer-pending.jpg"
+  ],
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24"
+  },
+  "scripts": {
+    "test": "node --test test/verify.mjs test/host.test.mjs",
+    "publish:github": "node tools/publish-to-github.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DEVbyQIN/dsh-file-annotations.git"
+  },
+  "homepage": "https://github.com/DEVbyQIN/dsh-file-annotations#readme",
+  "bugs": {
+    "url": "https://github.com/DEVbyQIN/dsh-file-annotations/issues"
+  },
+  "author": "DEVbyQIN",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "code-review",
+    "annotations",
+    "file-comments"
+  ],
+  "license": "MIT"
+}

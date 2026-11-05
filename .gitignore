@@ -1,0 +1,15 @@
+# 工作区临时产物
+.tmp/
+# 自己跑出来的批注存储（插件的真实产物，不进仓库）
+.dsh/
+node_modules/
+*.log
+.DS_Store
+
+# 真实界面截图（会拍到本机真实会话标题，不要提交）
+# 仓库里放的是合成数据的截图
+docs/real-ui.png
+docs/real-ui-*.png
+# 合成数据的面板截图要进仓库，供 README 引用
+!docs/real-ui-panel.png
+!docs/real-ui-region.png
