@@ -66,16 +66,22 @@ The Host exposes POST routes `resolve`, `read`, `write`, `crop`, and `crop-previ
 
 ## Install
 
+### Desktop
+
+In DSH, open **Plugins → Add plugin → Install existing plugin**. Enter `dsh-file-annotations` or `github:DEVbyQIN/dsh-file-annotations`, then install and enable it. Use the in-app plugin manager to uninstall it. [npm package](https://www.npmjs.com/package/dsh-file-annotations)
+
+### Web
+
 ```sh
-dsh plugin --profile desktop add github:DEVbyQIN/dsh-file-annotations
-# Or install the version currently published on npm:
-dsh plugin --profile desktop add dsh-file-annotations
+dsh plugin --profile web add dsh-file-annotations@0.6.2
+# Or install the same version from GitHub
+dsh plugin --profile web add 'github:DEVbyQIN/dsh-file-annotations#v0.6.2'
 ```
 
-Source and published versions may differ. Restart DSH after installation. To uninstall:
+Restart DSH after installation. Use the following command to uninstall.
 
 ```sh
-dsh plugin --profile desktop remove dsh-file-annotations
+dsh plugin --profile web remove dsh-file-annotations
 ```
 
 ## Development

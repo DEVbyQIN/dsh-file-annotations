@@ -78,16 +78,22 @@ HTML 工具条保留批注数量，使用图标选择网页元素；悬停显示
 
 ## 安装
 
+### 桌面版
+
+在 DSH 中打开 **插件 → 添加插件 → 安装已有插件**，输入 `dsh-file-annotations` 或 `github:DEVbyQIN/dsh-file-annotations`，安装并启用。卸载也在应用内的插件管理器中操作。 [npm 包](https://www.npmjs.com/package/dsh-file-annotations)
+
+### Web 版
+
 ```sh
-dsh plugin --profile desktop add github:DEVbyQIN/dsh-file-annotations
-# 或安装已发布到 npm 的版本
-dsh plugin --profile desktop add dsh-file-annotations
+dsh plugin --profile web add dsh-file-annotations@0.6.2
+# 或从 GitHub 安装同一版本
+dsh plugin --profile web add 'github:DEVbyQIN/dsh-file-annotations#v0.6.2'
 ```
 
-源码版本和已发布版本可能不同；安装后重启 DSH。卸载：
+安装后重启 DSH。通过以下命令卸载。
 
 ```sh
-dsh plugin --profile desktop remove dsh-file-annotations
+dsh plugin --profile web remove dsh-file-annotations
 ```
 
 ## 开发和验证
