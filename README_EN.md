@@ -1,6 +1,6 @@
 # dsh-file-annotations
 
-Notes are temporary preview drafts. Closing a file removes its records; closing the sidebar removes the current conversation’s notes. Switching tabs/conversations preserves them. JSON/localStorage, pending cards, native references and thumbnail caches are cleared together, with a 10-second Undo. Unsent crops are collected after the grace period; images referenced by admitted messages remain available.
+Notes are temporary preview drafts. Collapsing the sidebar or switching tabs or conversations preserves them. Confirming a file preview close clears that file’s JSON/localStorage, pending cards, native references and thumbnail caches, with a 10-second Undo. Unsent crops are collected after the grace period. Images referenced by admitted messages remain available.
 
 0.4.2: on first macOS Desktop load, DSH preferences are updated to open files with `⌘O` and annotate selections with `⌘P`. Previous values are backed up, failures roll back, and later manual edits are preserved. Web keeps `⌘⇧E` (`Ctrl+Shift+E` on Windows; Linux Web has no default binding).
 
@@ -21,7 +21,7 @@ Deleting the blue **File notes** reference removes that batch from the message w
 TXT, JSON and other text files also support annotations in Better Sidebar's CodeMirror editor. For HTML opened through Better Sidebar, select text directly on the rendered webpage and choose **Note**. The **Select webpage element** icon annotates a whole paragraph, heading or image, with a tooltip, blue active state and hover outline. **Box a region** is available from the adjacent arrow menu. The note count stays visible. Marks follow document and nested scrolling, reflow and reload. Missing or changed positional targets are hidden. The separate **Plain text** switch has been removed. The original opaque sandbox is preserved; same-origin access is never enabled. Legacy viewport-only HTML boxes remain in history and need reselecting to acquire an element anchor.
 
 1. Open a file in the right sidebar. Select text and choose **Note**, or choose **Box** and drag a PDF, image, or HTML region.
-2. Save the comment. It appears in the **pending list above the main composer**, scoped to the current session. Switching tabs preserves notes. Closing a file removes its notes; closing the sidebar removes the current conversation’s notes.
+2. Save the comment. It appears in the **pending list above the main composer**, scoped to the current session. If closing a file preview would clear notes, DSH asks you to confirm. Choose Cancel or press Esc to keep working. Previews without notes close directly.
 3. Review the quote, comment, and available region thumbnail. Collapse the list, edit a comment, remove a note, or click its filename to open the source file.
 4. Add any general instructions in the native composer, then click Send or press Enter. Notes can also be sent without additional text.
 5. Once the Host admits the message, the submitted batch moves to history. A failed admission keeps the notes pending, and DSH restores the message draft for retry.
@@ -87,7 +87,7 @@ node --test test/host.test.mjs
 
 The client uses `conversation.input.dock` for the list and an input-trigger reference codec for native Send/Enter serialization. A per-session wrapper observes the public `Session.prompt()` admission result. Disposal removes registrations, listeners, wrappers, and the plugin-owned reference.
 
-Verify the real UI before delivery: notes-only submission, extra instructions and Enter, admission failure recovery, session isolation, editing/removal, reload restoration, thumbnails, and closing the file sidebar.
+Verify the real UI before delivery, including notes-only submission, extra instructions and Enter, admission failure recovery, session isolation, editing and removal, reload restoration, thumbnails, sidebar collapse and preview close.
 
 ## Limits
 

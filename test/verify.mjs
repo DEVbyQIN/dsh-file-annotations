@@ -63,6 +63,8 @@ class MockNode {
   get firstChild() { return this.children[0] ?? null; }
   focus() { this.focused = true; }
   click() { this.emit('click'); }
+  showModal() { this.open = true; }
+  close() { this.open = false; }
 
   addEventListener(type, fn) {
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
@@ -899,13 +901,151 @@ function closePreviewFixture(f=boot()) {
   return {...f,panel,tab};
 }
 
-test('closing a sidebar removes real records, local cache, preview bytes and native chip; Undo restores notes', async () => {
-  const f=closePreviewFixture(await composerFixture());f.tab('one','/w/a.ts');
+function guardedPreviewFixture(booted) {
+  const f = closePreviewFixture(booted);
+  const tabs = new Map();
+  const listeners = new Set();
+  const sidebarRight = {
+    tabsIn: () => [...tabs.values()],
+    closeIn(owner, id) {
+      assert.equal(owner, 's');
+      tabs.get(id).body.remove();
+      tabs.delete(id);
+      for (const listener of listeners) listener();
+    },
+    openTabs: {
+      getSnapshot: () => [...tabs.keys()].map(tabId => ({ sessionId: 's', tabId })),
+      subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+    }
+  };
+  const nativeClose = sidebarRight.closeIn;
+  f.internals.connectComposerRuntime({ sidebarRight, inputTriggers: { registerSource: () => () => {} } });
+  return {
+    ...f, tabs, sidebarRight, nativeClose,
+    tab(id, path) { tabs.set(id, { ...f.tab(id, path), id }); },
+    close(id) { sidebarRight.closeIn('s', id); },
+    dialog() { return f.document.body.findByMark('closePreview'); }
+  };
+}
+
+test('closing a preview asks once and leaves the preview and notes intact until confirmed', () => {
+  const f = guardedPreviewFixture();
+  f.tab('a', '/w/a.txt');
+  f.tab('b', '/w/b.txt');
+  f.internals.setItems('/w', [
+    {id:'a',path:'/w/a.txt',sessionId:'s',comment:'a'},
+    {id:'b',path:'/w/b.txt',sessionId:'s',comment:'b'},
+    {id:'other',path:'/w/a.txt',sessionId:'other',comment:'other'}
+  ]);
+  f.close('a');
+  const dialog = f.dialog();
+  assert.equal(dialog.open, true);
+  assert.match(dialog.children[1].textContent, /a\.txt.*1/);
+  f.close('a');
+  assert.equal(f.dialog(), dialog);
+  assert.equal(f.tabs.has('a'), true);
+  assert.equal(f.internals.itemsOf('/w').length, 3);
+  dialog.findByMark('closePreviewCancel').click();
+  assert.ok(!f.dialog());
+  assert.equal(f.tabs.has('a'), true);
+  assert.equal(f.internals.itemsOf('/w').length, 3);
+  assert.equal(f.calls.fetch.length, 0);
+  f.close('a');
+  f.dialog().emit('cancel');
+  assert.ok(!f.dialog());
+  assert.equal(f.tabs.has('a'), true);
+  f.close('a');
+  f.dialog().findByMark('closePreviewConfirm').click();
+  assert.ok(!f.dialog());
+  assert.equal(f.tabs.has('a'), false);
+  assert.deepEqual(Array.from(f.internals.itemsOf('/w'), note => note.id), ['b', 'other']);
+  assert.ok(f.document.body.findByMark('undoNotice'));
+  f.internals.dispose();
+});
+
+test('a preview closes directly when its notes are empty or another copy remains open', () => {
+  const f = guardedPreviewFixture();
+  f.tab('empty', '/w/empty.html');
+  f.tab('first', '/w/file.pdf');
+  f.tab('last', '/w/file.pdf');
+  f.internals.setItems('/w', [{id:'same',path:'/w/file.pdf',sessionId:'s',comment:'same'}]);
+  f.close('empty');
+  f.close('first');
+  assert.ok(!f.dialog());
+  assert.deepEqual([...f.tabs.keys()], ['last']);
+  assert.equal(f.internals.itemsOf('/w').length, 1);
+  f.close('last');
+  assert.ok(f.dialog());
+  f.internals.dispose();
+  assert.ok(!f.dialog());
+  assert.equal(f.sidebarRight.closeIn, f.nativeClose);
+  assert.equal(f.tabs.has('last'), true);
+});
+
+test('closing an image preview removes its hover tip and leaves other files free of its markers', () => {
+  const f = guardedPreviewFixture();
+  f.tab('other', '/w/other.png');
+  f.tab('image', '/w/image.png');
+  for (const tab of f.tabs.values()) tab.body.appendChild(f.document.createElement('img'));
+  const region = {kind:'image',x:0.1,y:0.1,w:0.5,h:0.5};
+  f.internals.setItems('/w', [
+    {id:'current',path:'/w/image.png',sessionId:'s',comment:'9',region},
+    {id:'keep',path:'/w/image.png',sessionId:'another',comment:'Other conversation',region}
+  ]);
+  f.internals.setScope('all');
+  const badge = f.document.body.findByMark('mark');
+  assert.ok(badge);
+  badge.emit('mouseenter');
+  assert.ok(f.document.body.findByMark('marktip'));
+
+  f.close('image');
+  f.dialog().findByMark('closePreviewConfirm').click();
+  assert.equal(f.document.body.findByMark('marktip'), null);
+  assert.equal(f.document.body.findByMark('mark'), null);
+  assert.equal(f.document.body.findByMark('regionBox'), null);
+  assert.deepEqual(Array.from(f.internals.itemsOf('/w'), note => note.id), ['keep']);
+  f.internals.dispose();
+});
+
+test('a pending workspace read can supply notes and an old confirmation cannot close a replacement tab', async () => {
+  let answer;
+  const f = guardedPreviewFixture(boot({
+    fetch: async () => new Promise(resolve => { answer = resolve; })
+  }));
+  f.tab('preview', '/w/old.pdf');
+  const loaded = f.internals.loadStore('/w');
+  f.close('preview');
+  assert.ok(!f.dialog());
+  assert.equal(f.tabs.has('preview'), true);
+  answer({ok:true,json:async()=>({ok:true,value:{annotations:[
+    {id:'late',path:'/w/old.pdf',sessionId:'s',comment:'late'}
+  ]}})});
+  await loaded;
+  assert.ok(f.dialog());
+  const old = f.tabs.get('preview');
+  const replacement = { ...old, contentId: 'new resource' };
+  f.tabs.set('preview', replacement);
+  f.dialog().findByMark('closePreviewConfirm').click();
+  assert.equal(f.tabs.get('preview'), replacement);
+  assert.equal(f.internals.itemsOf('/w').length, 1);
+  f.internals.dispose();
+});
+
+test('collapsing the sidebar preserves the composer chip and caches; closing the file clears them and offers Undo', async () => {
+  const f=closePreviewFixture(await composerFixture());const preview=f.tab('one','/w/a.ts');
   stageNotes(f,[{id:'close-me',path:'/w/a.ts',sessionId:'s',comment:'keep on undo',crop:'.dsh/annotations/crops/close-me.png'}]);
   f.internals.cropPreviews.set('close-me','data:image/png;base64,large');
   await new Promise(resolve=>setTimeout(resolve,10));
   assert.equal(f.a.input.state.getSnapshot().occurrences.length,1);
+  const stored=f.storage.getItem(f.internals.LS_PREFIX+'/w');
   f.panel.removeAttribute('data-sidebar-right-open');f.internals.syncPreviewLifetimes();
+  assert.equal(f.internals.pendingFor('/w','s').length,1);
+  assert.equal(f.internals.cropPreviews.has('close-me'),true);
+  assert.equal(f.storage.getItem(f.internals.LS_PREFIX+'/w'),stored);
+  assert.equal(f.a.input.state.getSnapshot().occurrences.length,1);
+  assert.ok(!f.document.body.findByMark('undoNotice'));
+  f.panel.setAttribute('data-sidebar-right-open','');f.internals.syncPreviewLifetimes();
+  preview.body.remove();f.internals.syncPreviewLifetimes();
   assert.equal(f.internals.itemsOf('/w').length,0);assert.equal(f.internals.cropPreviews.has('close-me'),false);
   assert.equal(f.storage.getItem(f.internals.LS_PREFIX+'/w'),null);
   await new Promise(resolve=>setTimeout(resolve,10));
@@ -947,12 +1087,20 @@ test('duplicate close notifications keep the original Undo snapshot alive', () =
   assert.equal(f.internals.itemsOf('/w').length,1);f.internals.dispose();
 });
 
-test('closing the whole sidebar clears unvisited files in that conversation as well', () => {
-  const f=closePreviewFixture();f.tab('active','/w/a.ts');
+test('collapsing an unmounted preview preserves tracked and unvisited notes while its host tab remains open', () => {
+  const f=guardedPreviewFixture();f.tab('active','/w/a.ts');
   f.internals.setItems('/w',[{id:'active',path:'/w/a.ts',sessionId:'s',comment:'a'},
     {id:'unvisited',path:'/w/old.pdf',sessionId:'s',comment:'b'},{id:'other',path:'/w/x.ts',sessionId:'another',comment:'c'}]);
-  f.panel.removeAttribute('data-sidebar-right-open');f.internals.syncPreviewLifetimes();
-  assert.deepEqual(Array.from(f.internals.itemsOf('/w'),note=>note.id),['other']);f.internals.dispose();
+  f.panel.removeAttribute('data-sidebar-right-open');
+  const body=f.tabs.get('active').body;
+  body.remove();f.internals.syncPreviewLifetimes();
+  assert.deepEqual(Array.from(f.internals.itemsOf('/w'),note=>note.id),['active','unvisited','other']);
+  f.panel.appendChild(body);f.panel.setAttribute('data-sidebar-right-open','');f.internals.syncPreviewLifetimes();
+  f.close('active');
+  assert.ok(f.dialog());
+  f.dialog().findByMark('closePreviewConfirm').click();
+  assert.deepEqual(Array.from(f.internals.itemsOf('/w'),note=>note.id),['unvisited','other']);
+  f.internals.dispose();
 });
 
 test('a late workspace read cannot resurrect closed notes or discard unrelated files; Undo restores them', async () => {
